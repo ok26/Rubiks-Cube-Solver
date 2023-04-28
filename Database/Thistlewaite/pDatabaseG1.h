@@ -9,10 +9,10 @@ class PatternDatabaseG1 : public PatternDatabase {
 public:
 
 	PatternDatabaseG1() : PatternDatabase() {
-		readThread = thread(&PatternDatabase::readFromFile, this, "resources/data/ThistlewaiteG1");
+		readThread = thread(&PatternDatabase::readHashData, this, "resources/data/ThistlewaiteG1");
 	};
 
-	int64_t getDatabaseIndex(CubeIndexModel cube) {
+	int64_t getDatabaseIndex(const CubeIndexModel& cube) {
 		int64_t ID = 1;
 
 		for (int i = 0; i < 12; i++) {
@@ -23,9 +23,9 @@ public:
 		return ID;
 	}
 
-	int getNumMoves(CubeIndexModel cube) {
+	int getNumMoves(const CubeIndexModel& cube) {
 		int64_t ID = this->getDatabaseIndex(cube);
-		return dataBase[ID];
+		return hashDatabase[ID];
 	}
 };
 

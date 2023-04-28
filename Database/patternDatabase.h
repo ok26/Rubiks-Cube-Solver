@@ -14,33 +14,39 @@ using namespace std;
 
 class PatternDatabase {
 public:
-	map<int64_t, int> dataBase;
+	vector<int> database;
+	map<int64_t, int> hashDatabase;
 	thread readThread;
 
-	PatternDatabase() {
-	}
-
-	void readFromFile(string fileName) {
+	void readHashData(string fileName) {
+		ifstream input(fileName);
 		int64_t hash;
-		int moves;
-		std::ifstream input(fileName);
-		while (input >> hash >> moves)
-			dataBase[hash] = moves;
+		int numMoves;
+		while (input >> hash >> numMoves)
+			hashDatabase[hash] = numMoves;
 		input.close();
 		std::cout << "Finished reading from: " << fileName << "\n";
 	}
 
-	virtual int64_t getDatabaseIndex(CubeIndexModel cube) {
+	void readLehmerData(string fileName) {
+		ifstream input(fileName);
+		string data;
+		input >> data;
+		for (int i = 0; i < data.length(); i++)
+			database[i] = (int)(data[i] - 'a');
+		input.close();
+		std::cout << "Finished reading from: " << fileName << "\n";
+	}
+
+	virtual int64_t getDatabaseIndex(const CubeIndexModel& cube) {
 		cout << "Failed to initialize getDatabaseIndex\n";
 		return 0;
 	}
 
-	virtual int getNumMoves(CubeIndexModel cube) {
+	virtual int getNumMoves(const CubeIndexModel& cube) {
 		int64_t ID = this->getDatabaseIndex(cube);
-		return dataBase[ID];
+		return database[ID];
 	}
-	
-
 };
 
 #endif // !PATTERN_DATABASE_H

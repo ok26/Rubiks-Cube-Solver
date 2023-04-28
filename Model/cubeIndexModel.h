@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <array>
+#include <vector>
 #include <iostream>
 
 struct Cubie {
@@ -10,376 +11,179 @@ struct Cubie {
 	int orientation;
 };
 
-struct Move {
-	int target;
-	float duration;
-	int axis;
-	bool inverse;
+enum indexMove {R, Rp, R2, L, Lp, L2, U, Up, U2, D, Dp, D2, F, Fp, F2, B, Bp, B2};
+
+std::array<std::array<int, 8>, 6> affectedCubies = {
+	std::array<int, 8>{0, 1, 2, 3, 0, 1, 2, 3},
+	{2, 4, 8, 5, 2, 7, 4, 3},
+	{1, 7, 11, 4, 1, 6, 7, 2},
+	{3, 5, 9, 6, 3, 4, 5, 0},
+	{0, 6, 10, 7, 0, 5, 6, 1},
+	{8, 11, 10, 9, 7, 6, 5, 4}
 };
 
-enum colors {YELLOW, BLUE, RED, GREEN, ORANGE, WHITE};
-enum edgePositions {ub, ur, uf, ul, fr, fl, bl, br, df, dl, db, dr};
-enum cornerPositions {ulb, urb, urf, ulf, dlf, dlb, drb, drf};
-enum indexMove {R, Rp, R2, L, Lp, L2, U, Up, U2, D, Dp, D2, F, Fp, F2, B, Bp, B2};
+std::array<int, 6> faceIndices = { 2, 3, 0, 5, 1, 4 };
 
 class CubeIndexModel {
 public:
 	std::array<Cubie, 12> edges;
 	std::array<Cubie, 8> corners;
+	std::array<int, 6> centers = {0, 1, 2, 3, 4, 5};
 
-	CubeIndexModel() {
+	CubeIndexModel(bool blank = false) {
 		for (int i = 0; i < 12; i++) {
-			edges[i].index = i;
+			edges[i].index = blank ? -1 : i;
 			edges[i].orientation = 0;
 		}
 
 		for (int i = 0; i < 8; i++) {
-			corners[i].index = i;
+			corners[i].index = blank ? -1 : i;
 			corners[i].orientation = 0;
 		}
 	}
 
-	//temporary
-	void processMove(Move move) {
-		switch (move.target) {
-		case 0:
-			if (move.inverse)
-				doMove(U);
-			else
-				doMove(Up);
-			break;
-		case 1:
-			if (move.inverse)
-				doMove(F);
-			else
-				doMove(Fp);
-			break;
-		case 2:
-			if (move.inverse)
-				doMove(R);
-			else
-				doMove(Rp);
-			break;
-		case 3:
-			if (move.inverse)
-				doMove(Lp);
-			else
-				doMove(L);
-			break;
-		case 4:
-			if (move.inverse)
-				doMove(Bp);
-			else
-				doMove(B);
-			break;
-		case 5:
-			if (move.inverse)
-				doMove(Dp);
-			else
-				doMove(D);
-			break;
+	CubeIndexModel(const CubeIndexModel& cubeCopy) {
+		for (int i = 0; i < 12; i++) {
+			edges[i] = cubeCopy.edges[i];
+		}
+
+		for (int i = 0; i < 8; i++) {
+			corners[i] = cubeCopy.corners[i];
 		}
 	}
-	//********************************************************************************************
-	//FULLY REFRACTOR THE MOVE TING -------- FUCING INVERSE DOES NOT EVEN MEAN PRIME MOVE -------
-	//********************************************************************************************
+
+	bool isSolved() {
+		for (int i = 0; i < 12; i++)
+			if (edges[i].index != i || edges[i].orientation != 0)
+				return false;
+
+		for (int i = 0; i < 8; i++)
+			if (corners[i].index != i || corners[i].orientation != 0)
+				return false;
+
+		return true;
+	}
 
 	void printData() {
-		for (int i = 0; i < 12; i++) {
-			std::cout << edges[i].index << " " << edges[i].orientation << std::endl;
-		}
-		std::cout << std::endl;
-		for (int i = 0; i < 8; i++) {
-			std::cout << corners[i].index << " " << corners[i].orientation << std::endl;
-		}
-		std::cout << std::endl;
+		for (int i = 0; i < 8; i++)
+			std::cout << corners[i].index << " " << corners[i].orientation << "\n";
+
+		std::cout << "\n";
+
+		for (int i = 0; i < 12; i++)
+			std::cout << edges[i].index << " " << edges[i].orientation << "\n";
 	}
 
-	void updateCornerOrientationX(cornerPositions index) {
-		Cubie& corner = corners[index];
-		bool evenDistance = (index + corner.index) % 2 == 0;
-		if (corner.orientation == 0)
-			corner.orientation = evenDistance ? 2 : 1;
-		else if (corner.orientation == 1)
-			corner.orientation = evenDistance ? 0 : 2;
-		else
-			corner.orientation = evenDistance ? 1 : 0;
+	void updateEdgeOrientation(int affectedFace) {
+		for (int i = 0; i < 4; i++) {
+			edges[affectedCubies[affectedFace][i]].orientation ^= 1;
+		}
 	}
 
-	void updateCornerOrientationZ(cornerPositions index) {
-		Cubie& corner = corners[index];
-		bool evenDistance = (index + corner.index) % 2 == 0;
-		if (corner.orientation == 0)
-			corner.orientation = evenDistance ? 1 : 2;
-		else if (corner.orientation == 1)
-			corner.orientation = evenDistance ? 2 : 0;
-		else
-			corner.orientation = evenDistance ? 0 : 1;
+	void updateCubieIndex(int affectedFace, bool inverse, bool doubleMove) {
+		if (doubleMove) {
+			std::swap(edges[affectedCubies[affectedFace][0]], edges[affectedCubies[affectedFace][2]]);
+			std::swap(edges[affectedCubies[affectedFace][1]], edges[affectedCubies[affectedFace][3]]);
+
+			std::swap(corners[affectedCubies[affectedFace][4]], corners[affectedCubies[affectedFace][6]]);
+			std::swap(corners[affectedCubies[affectedFace][5]], corners[affectedCubies[affectedFace][7]]);
+			return;
+		}
+
+		Cubie hold;
+
+		if (inverse) {
+			hold = edges[affectedCubies[affectedFace][0]];
+			edges[affectedCubies[affectedFace][0]] = edges[affectedCubies[affectedFace][1]];
+			edges[affectedCubies[affectedFace][1]] = edges[affectedCubies[affectedFace][2]];
+			edges[affectedCubies[affectedFace][2]] = edges[affectedCubies[affectedFace][3]];
+			edges[affectedCubies[affectedFace][3]] = hold;
+
+			hold = corners[affectedCubies[affectedFace][4]];
+			corners[affectedCubies[affectedFace][4]] = corners[affectedCubies[affectedFace][5]];
+			corners[affectedCubies[affectedFace][5]] = corners[affectedCubies[affectedFace][6]];
+			corners[affectedCubies[affectedFace][6]] = corners[affectedCubies[affectedFace][7]];
+			corners[affectedCubies[affectedFace][7]] = hold;
+		}
+		else {
+			hold = edges[affectedCubies[affectedFace][0]];
+			edges[affectedCubies[affectedFace][0]] = edges[affectedCubies[affectedFace][3]];
+			edges[affectedCubies[affectedFace][3]] = edges[affectedCubies[affectedFace][2]];
+			edges[affectedCubies[affectedFace][2]] = edges[affectedCubies[affectedFace][1]];
+			edges[affectedCubies[affectedFace][1]] = hold;
+
+			hold = corners[affectedCubies[affectedFace][4]];
+			corners[affectedCubies[affectedFace][4]] = corners[affectedCubies[affectedFace][7]];
+			corners[affectedCubies[affectedFace][7]] = corners[affectedCubies[affectedFace][6]];
+			corners[affectedCubies[affectedFace][6]] = corners[affectedCubies[affectedFace][5]];
+			corners[affectedCubies[affectedFace][5]] = hold;
+		}
+	}
+
+	void fullRotation(int axis, bool inverse) {
+		int hold;
+		if (axis == 0) {
+			if (inverse) {
+				hold = centers[0];
+				centers[0] = centers[1];
+				centers[1] = centers[5];
+				centers[5] = centers[4];
+				centers[4] = hold;
+			}
+			else {
+				hold = centers[0];
+				centers[0] = centers[4];
+				centers[4] = centers[5];
+				centers[5] = centers[1];
+				centers[1] = hold;
+			}
+		}
+		else if (axis == 1) {
+			if (inverse) {
+				hold = centers[1];
+				centers[1] = centers[2];
+				centers[2] = centers[4];
+				centers[4] = centers[3];
+				centers[3] = hold;
+			}
+			else {
+				hold = centers[1];
+				centers[1] = centers[3];
+				centers[3] = centers[4];
+				centers[4] = centers[2];
+				centers[2] = hold;
+			}
+		}
 	}
 
 	void doMove(int indexMove) {
-		Cubie hold;
-		switch (indexMove) {
-		case U:
-			hold = edges[ul];
-			edges[ul] = edges[uf];
-			edges[uf] = edges[ur];
-			edges[ur] = edges[ub];
-			edges[ub] = hold;
+		int affectedFace = centers[ faceIndices[indexMove / 3] ];
+		bool inverse = indexMove % 3 == 1;
+		bool doubleMove = indexMove % 3 == 2;
+		updateCubieIndex(affectedFace, inverse, doubleMove);
+		if (!doubleMove && affectedFace > 0 && affectedFace < 5) {
+			int& c1Ori = corners[affectedCubies[affectedFace][4]].orientation;
+			c1Ori = (c1Ori + 1) % 3;
+			int& c2Ori = corners[affectedCubies[affectedFace][5]].orientation;
+			c2Ori = (c2Ori + 2) % 3;
+			int& c3Ori = corners[affectedCubies[affectedFace][6]].orientation;
+			c3Ori = (c3Ori + 1) % 3;
+			int& c4Ori = corners[affectedCubies[affectedFace][7]].orientation;
+			c4Ori = (c4Ori + 2) % 3;
 
-			hold = corners[ulf];
-			corners[ulf] = corners[urf];
-			corners[urf] = corners[urb];
-			corners[urb] = corners[ulb];
-			corners[ulb] = hold;
-			break;
-		case Up:
-			hold = edges[ub];
-			edges[ub] = edges[ur];
-			edges[ur] = edges[uf];
-			edges[uf] = edges[ul];
-			edges[ul] = hold;
+			if (affectedFace == 1 || affectedFace == 4)
+				for (int i = 0; i < 4; i++)
+					edges[affectedCubies[affectedFace][i]].orientation ^= 1;
+		}
+	}
 
-			hold = corners[ulb];
-			corners[ulb] = corners[urb];
-			corners[urb] = corners[urf];
-			corners[urf] = corners[ulf];
-			corners[ulf] = hold;
-			break;
-		case U2:
-			std::swap(edges[ub], edges[uf]);
-			std::swap(edges[ul], edges[ur]);
-
-			std::swap(corners[ulb], corners[urf]);
-			std::swap(corners[urb], corners[ulf]);
-			break;
-		case L:
-			hold = edges[bl];
-			edges[bl] = edges[dl];
-			edges[dl] = edges[fl];
-			edges[fl] = edges[ul];
-			edges[ul] = hold;
-
-			hold = corners[dlb];
-			corners[dlb] = corners[dlf];
-			corners[dlf] = corners[ulf];
-			corners[ulf] = corners[ulb];
-			corners[ulb] = hold;
-
-			updateCornerOrientationX(dlb);
-			updateCornerOrientationX(dlf);
-			updateCornerOrientationX(ulf);
-			updateCornerOrientationX(ulb);
-			break;
-		case Lp:
-			hold = edges[bl];
-			edges[bl] = edges[ul];
-			edges[ul] = edges[fl];
-			edges[fl] = edges[dl];
-			edges[dl] = hold;
-
-			hold = corners[dlb];
-			corners[dlb] = corners[ulb];
-			corners[ulb] = corners[ulf];
-			corners[ulf] = corners[dlf];
-			corners[dlf] = hold;
-
-			updateCornerOrientationX(dlb);
-			updateCornerOrientationX(dlf);
-			updateCornerOrientationX(ulf);
-			updateCornerOrientationX(ulb);
-			break;
-		case L2:
-			std::swap(edges[bl], edges[fl]);
-			std::swap(edges[ul], edges[dl]);
-
-			std::swap(corners[dlb], corners[ulf]);
-			std::swap(corners[ulb], corners[dlf]);
-			break;
-		case F:
-			hold = edges[uf];
-			edges[uf] = edges[fl];
-			edges[fl] = edges[df];
-			edges[df] = edges[fr];
-			edges[fr] = hold;
-
-			edges[uf].orientation ^= 1;
-			edges[fl].orientation ^= 1;
-			edges[df].orientation ^= 1;
-			edges[fr].orientation ^= 1;
-
-			hold = corners[ulf];
-			corners[ulf] = corners[dlf];
-			corners[dlf] = corners[drf];
-			corners[drf] = corners[urf];
-			corners[urf] = hold;
-
-			updateCornerOrientationZ(ulf);
-			updateCornerOrientationZ(dlf);
-			updateCornerOrientationZ(drf);
-			updateCornerOrientationZ(urf);
-			break;
-		case Fp:
-			hold = edges[uf];
-			edges[uf] = edges[fr];
-			edges[fr] = edges[df];
-			edges[df] = edges[fl];
-			edges[fl] = hold;
-
-			edges[uf].orientation ^= 1;
-			edges[fl].orientation ^= 1;
-			edges[df].orientation ^= 1;
-			edges[fr].orientation ^= 1;
-
-			hold = corners[ulf];
-			corners[ulf] = corners[urf];
-			corners[urf] = corners[drf];
-			corners[drf] = corners[dlf];
-			corners[dlf] = hold;
-
-			updateCornerOrientationZ(ulf);
-			updateCornerOrientationZ(dlf);
-			updateCornerOrientationZ(drf);
-			updateCornerOrientationZ(urf);
-			break;
-		case F2:
-			std::swap(edges[uf], edges[df]);
-			std::swap(edges[fl], edges[fr]);
-
-			std::swap(corners[ulf], corners[drf]);
-			std::swap(corners[urf], corners[dlf]);
-			break;
-		case R:
-			hold = edges[br];
-			edges[br] = edges[ur];
-			edges[ur] = edges[fr];
-			edges[fr] = edges[dr];
-			edges[dr] = hold;
-
-			hold = corners[drb];
-			corners[drb] = corners[urb];
-			corners[urb] = corners[urf];
-			corners[urf] = corners[drf];
-			corners[drf] = hold;
-
-			updateCornerOrientationX(drb);
-			updateCornerOrientationX(urb);
-			updateCornerOrientationX(urf);
-			updateCornerOrientationX(drf);
-			break;
-		case Rp:
-			hold = edges[br];
-			edges[br] = edges[dr];
-			edges[dr] = edges[fr];
-			edges[fr] = edges[ur];
-			edges[ur] = hold;
-
-			hold = corners[drb];
-			corners[drb] = corners[drf];
-			corners[drf] = corners[urf];
-			corners[urf] = corners[urb];
-			corners[urb] = hold;
-
-			updateCornerOrientationX(drb);
-			updateCornerOrientationX(urb);
-			updateCornerOrientationX(urf);
-			updateCornerOrientationX(drf);
-			break;
-		case R2:
-			std::swap(edges[br], edges[fr]);
-			std::swap(edges[ur], edges[dr]);
-
-			std::swap(corners[drb], corners[urf]);
-			std::swap(corners[urb], corners[drf]);
-			break;
-		case B:
-			hold = edges[ub];
-			edges[ub] = edges[br];
-			edges[br] = edges[db];
-			edges[db] = edges[bl];
-			edges[bl] = hold;
-
-			edges[ub].orientation ^= 1;
-			edges[br].orientation ^= 1;
-			edges[db].orientation ^= 1;
-			edges[bl].orientation ^= 1;
-
-			hold = corners[ulb];
-			corners[ulb] = corners[urb];
-			corners[urb] = corners[drb];
-			corners[drb] = corners[dlb];
-			corners[dlb] = hold;
-
-			updateCornerOrientationZ(ulb);
-			updateCornerOrientationZ(urb);
-			updateCornerOrientationZ(drb);
-			updateCornerOrientationZ(dlb);
-			break;
-		case Bp:
-			hold = edges[ub];
-			edges[ub] = edges[bl];
-			edges[bl] = edges[db];
-			edges[db] = edges[br];
-			edges[br] = hold;
-
-			edges[ub].orientation ^= 1;
-			edges[br].orientation ^= 1;
-			edges[db].orientation ^= 1;
-			edges[bl].orientation ^= 1;
-
-			hold = corners[ulb];
-			corners[ulb] = corners[dlb];
-			corners[dlb] = corners[drb];
-			corners[drb] = corners[urb];
-			corners[urb] = hold;
-
-			updateCornerOrientationZ(ulb);
-			updateCornerOrientationZ(urb);
-			updateCornerOrientationZ(drb);
-			updateCornerOrientationZ(dlb);
-			break;
-		case B2:
-			std::swap(edges[ub], edges[db]);
-			std::swap(edges[bl], edges[br]);
-
-			std::swap(corners[ulb], corners[drb]);
-			std::swap(corners[urb], corners[dlb]);
-			break;
-		case D:
-			hold = edges[db];
-			edges[db] = edges[dr];
-			edges[dr] = edges[df];
-			edges[df] = edges[dl];
-			edges[dl] = hold;
-
-			hold = corners[dlb];
-			corners[dlb] = corners[drb];
-			corners[drb] = corners[drf];
-			corners[drf] = corners[dlf];
-			corners[dlf] = hold;
-			break;
-		case Dp:
-			hold = edges[dl];
-			edges[dl] = edges[df];
-			edges[df] = edges[dr];
-			edges[dr] = edges[db];
-			edges[db] = hold;
-
-			hold = corners[dlf];
-			corners[dlf] = corners[drf];
-			corners[drf] = corners[drb];
-			corners[drb] = corners[dlb];
-			corners[dlb] = hold;
-			break;
-		case D2:
-			std::swap(edges[db], edges[df]);
-			std::swap(edges[dr], edges[dl]);
-
-			std::swap(corners[dlb], corners[drf]);
-			std::swap(corners[drb], corners[dlf]);
-			break;
-		};
-
+	void doReverseMove(int move) {
+		if ((move % 3) == 2)
+			doMove(move);
+		else if ((move % 3) == 1)
+			doMove(move - 1);
+		else
+			doMove(move + 1);
 	}
 };
 

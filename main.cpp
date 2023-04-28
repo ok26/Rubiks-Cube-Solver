@@ -17,6 +17,9 @@
 #include "Command/kociembaSolver.h"
 #include "Command/cubeScramble.h"
 
+#include "Database/moveStore.h"
+#include "Database/symmetryIndexer.h"
+
 #include <iostream>
 #include <queue>
 #include <map>
@@ -26,7 +29,6 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
 void configureLight(Shader& shader, glm::mat4 projection, glm::mat4 view, glm::mat4 model);
-vector<Move> tempTranslate(vector<int> moves);
 
 const unsigned int SCR_WIDTH = 1200;
 const unsigned int SCR_HEIGHT = 900;
@@ -44,15 +46,23 @@ float lastFrame = 0.0f;
 std::vector<glm::vec3> pointLights = {camera.Position};
 
 std::queue<Move> moveQueue;
+MoveStore moveStore;
 
 std::map<int, bool> pressedKeys;
-std::array<int, 11> moveKeys = { GLFW_KEY_U, GLFW_KEY_N, GLFW_KEY_R, GLFW_KEY_L, GLFW_KEY_F,
-                                GLFW_KEY_B, GLFW_KEY_LEFT, GLFW_KEY_RIGHT, GLFW_KEY_UP, GLFW_KEY_DOWN, GLFW_KEY_Y};
+std::array<int, 13> moveKeys = { GLFW_KEY_U, GLFW_KEY_N, GLFW_KEY_R, GLFW_KEY_L, GLFW_KEY_F,
+                                GLFW_KEY_B, GLFW_KEY_LEFT, GLFW_KEY_RIGHT, GLFW_KEY_UP, GLFW_KEY_DOWN, 
+                                GLFW_KEY_Y, GLFW_KEY_T, GLFW_KEY_I};
 
-CubeScrambler cubeScrambler;
-//ThistlewaiteSolver solver;
-KociembaSolver solver;
+CubeScrambler cubeScrambler((unsigned int)time(nullptr));
+ThistlewaiteSolver thistlewaiteSolver(false);
+KociembaSolver kociembaSolver;
 CubeIndexModel rubiksCubeIndexModel = CubeIndexModel();
+
+SymmetryIndexer symmetryIndexer;
+
+std::array<int, 6> recurrentKocimebaG1TimeBlock = { 10, 100, 1000, 5000, 10000, 30000 };
+
+int currentTimeBlock = 1;
 
 int main() {
     glfwInit();
@@ -64,7 +74,7 @@ int main() {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Rubik's Cube Solver", NULL, NULL);
     if (window == NULL) {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
@@ -108,7 +118,12 @@ int main() {
         if (!moveQueue.empty() && !currentAnimation.running) {
             Move move = moveQueue.front();
             moveQueue.pop();
-            rubiksCubeIndexModel.processMove(move);
+
+            if (move.target == 6) 
+                rubiksCubeIndexModel.fullRotation(move.axis, move.inverse);
+            else
+                rubiksCubeIndexModel.doMove(moveStore.animationMoveToIndex(move));
+
             currentAnimation.doAnimation(move.target, move.duration, move.axis, move.inverse, (float)glfwGetTime());
         }
 
@@ -160,6 +175,10 @@ void processMove(Move move, int key) {
     moveQueue.push({ move.target, move.duration, move.axis, move.inverse });
 }
 
+bool solverReady(bool sovlerTablesInitialized) {
+    return !rubiksCubeIndexModel.isSolved() && !currentAnimation.running && sovlerTablesInitialized;
+}
+
 void processInput(GLFWwindow* window) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
@@ -202,22 +221,49 @@ void processInput(GLFWwindow* window) {
         processMove({ 6, 0.3f, 0, true }, GLFW_KEY_UP);
     if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS && !pressedKeys[GLFW_KEY_DOWN])
         processMove({ 6, 0.3f, 0, false }, GLFW_KEY_DOWN);
+    
+    if (glfwGetKey(window, GLFW_KEY_ENTER) == GLFW_PRESS && !currentAnimation.running)
+        cubeScrambler.scrambleCube100(&moveQueue);
 
+    else if (glfwGetKey(window, GLFW_KEY_F5) == GLFW_PRESS && !currentAnimation.running)
+        cubeScrambler.scrambleCubeWithRandomMoveNr(&moveQueue, 25, 35, 0.13f);
+
+    else if (glfwGetKey(window, GLFW_KEY_F1) == GLFW_PRESS && solverReady(kociembaSolver.tablesInitialized)) {
+        vector<int> solution = kociembaSolver.kocimbeaTwoPhase(rubiksCubeIndexModel, recurrentKocimebaG1TimeBlock[currentTimeBlock]);
+        vector<Move> moveSequence = moveStore.indexToAnimationMove(solution, 0.15f);
+        for (Move move : moveSequence)
+            moveQueue.push(move);
+    }
+    else if (glfwGetKey(window, GLFW_KEY_F2) == GLFW_PRESS && solverReady(thistlewaiteSolver.tablesInitialized)) {
+        vector<int> solution = thistlewaiteSolver.solveCubeIDA(rubiksCubeIndexModel);
+        vector<Move> moveSequence = moveStore.indexToAnimationMove(solution, 0.15f);
+        for (Move move : moveSequence)
+            moveQueue.push(move);
+    }
+  
     if (glfwGetKey(window, GLFW_KEY_Y) == GLFW_PRESS && !pressedKeys[GLFW_KEY_Y]) {
         pressedKeys[GLFW_KEY_Y] = true;
         rubiksCubeIndexModel.printData();
     }
     
-    if (glfwGetKey(window, GLFW_KEY_ENTER) == GLFW_PRESS && !currentAnimation.running)
-        cubeScrambler.scrambleCube100(&moveQueue);
-
-    if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS && !currentAnimation.running) {
-        vector<int> solution = solver.solveCubeIDA(rubiksCubeIndexModel);
-        vector<Move> moveSequence = tempTranslate(solution);
-        for (Move move : moveSequence)
-            moveQueue.push(move);
+    if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS && !pressedKeys[GLFW_KEY_T]) {
+        pressedKeys[GLFW_KEY_T] = true;
+        currentTimeBlock = (currentTimeBlock + 1) % 6;
+        int& timeBlock = recurrentKocimebaG1TimeBlock[currentTimeBlock];
+        cout << "New time block: ";
+        if (timeBlock > 1000)
+            cout << timeBlock / 1000 << " seconds\n";
+        else if (timeBlock == 1000)
+            cout << "1 second\n";
+        else
+            cout << timeBlock << " milliseconds\n";
     }
-        
+
+    if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS && !pressedKeys[GLFW_KEY_I]) {
+        pressedKeys[GLFW_KEY_I] = true;
+        if (!thistlewaiteSolver.tablesInitialized)
+            thistlewaiteSolver.initializeTables();
+    }
 
     for (unsigned int key : moveKeys)
         if (glfwGetKey(window, key) == GLFW_RELEASE)
@@ -251,60 +297,4 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn) {
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
     camera.ProcessMouseScroll(static_cast<float>(yoffset));
-}
-
-vector<Move> tempTranslate(vector<int> moves) {
-    std::vector<Move> translatedMoves;
-    float duration = 0.16f;
-    for (int move : moves) {
-        if (move == 0)
-            translatedMoves.push_back({ 2, duration, 0, true });
-        else if (move == 1)
-            translatedMoves.push_back({ 2, duration, 0, false });
-        else if (move == 2) {
-            translatedMoves.push_back({ 2, duration, 0, true });
-            translatedMoves.push_back({ 2, duration, 0, true });
-        }
-        else if (move == 3)
-            translatedMoves.push_back({ 3, duration, 0, false });
-        else if (move == 4)
-            translatedMoves.push_back({ 3, duration, 0, true });
-        else if (move == 5) {
-            translatedMoves.push_back({ 3, duration, 0, false });
-            translatedMoves.push_back({ 3, duration, 0, false });
-        }
-        else if (move == 6)
-            translatedMoves.push_back({ 0, duration, 1, true });
-        else if (move == 7)
-            translatedMoves.push_back({ 0, duration, 1, false });
-        else if (move == 8) {
-            translatedMoves.push_back({ 0, duration, 1, true });
-            translatedMoves.push_back({ 0, duration, 1, true });
-        }
-        else if (move == 9)
-            translatedMoves.push_back({ 5, duration, 1, false });
-        else if (move == 10)
-            translatedMoves.push_back({ 5, duration, 1, true });
-        else if (move == 11) {
-            translatedMoves.push_back({ 5, duration, 1, false });
-            translatedMoves.push_back({ 5, duration, 1, false });
-        }
-        else if (move == 12)
-            translatedMoves.push_back({ 1, duration, 2, true });
-        else if (move == 13)
-            translatedMoves.push_back({ 1, duration, 2, false });
-        else if (move == 14) {
-            translatedMoves.push_back({ 1, duration, 2, true });
-            translatedMoves.push_back({ 1, duration, 2, true });
-        }
-        else if (move == 15)
-            translatedMoves.push_back({ 4, duration, 2, false });
-        else if (move == 16)
-            translatedMoves.push_back({ 4, duration, 2, true });
-        else if (move == 17) {
-            translatedMoves.push_back({ 4, duration, 2, false });
-            translatedMoves.push_back({ 4, duration, 2, false });
-        }
-    }
-    return translatedMoves;
 }

@@ -27,11 +27,9 @@ struct PrioritizedMove {
 	}
 };
 
+
 class CubeSolver {
 public:
-
-	CubeSolver() {};
-
 
 	vector<int> solveBFS(PatternDatabase* pDatabase, CubeIndexModel cube, int availableMoves) {
 
@@ -39,7 +37,7 @@ public:
 		MovePruner movePruner;
 		
 		int64_t currentID = pDatabase->getDatabaseIndex(cube);
-		CubeIndexModel solvedState = CubeIndexModel();
+		CubeIndexModel solvedState;
 		int64_t solvedID = pDatabase->getDatabaseIndex(solvedState);
 
 		if (currentID == solvedID)
@@ -92,7 +90,7 @@ public:
 		return solution;
 	}
 
-	vector<int> solveIDA(PatternDatabase* pDatabase, CubeIndexModel cube, int availableMoves) {
+	vector<int> solveIDA(PatternDatabase* pDatabase, CubeIndexModel cube, int availableMoves, int foundSolutionDepth = 1e9) {
 		typedef priority_queue<PrioritizedMove, vector<PrioritizedMove>, greater<PrioritizedMove>> moveQueue_t;
 		MovePruner movePruner;
 
@@ -118,6 +116,10 @@ public:
 				nextBound = 0xFF;
 			}
 
+			if (bound >= foundSolutionDepth) {
+				return vector<int>(bound, -1);
+			}
+
 			curNode = nodeStack.top();
 			nodeStack.pop();
 
@@ -129,7 +131,6 @@ public:
 			if (curNode.depth == bound) {
 				if (pDatabase->getNumMoves(curNode.cube) == 0)
 					solved = true;
-
 			}
 			else {
 				moveQueue_t successors;
@@ -138,8 +139,9 @@ public:
 					if (availableMoves & (1 << move)) {
 
 						if (curNode.depth == 0 || !movePruner.pruneMove(move, curNode.move)) {
-							CubeIndexModel cubeCopy = curNode.cube;
+							CubeIndexModel cubeCopy(curNode.cube);
 							cubeCopy.doMove(move);
+
 							int estSuccMoves = curNode.depth + 1 + pDatabase->getNumMoves(cubeCopy);
 
 							if (estSuccMoves <= bound) {

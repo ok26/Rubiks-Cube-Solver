@@ -37,6 +37,15 @@ public:
 			return true;
 		return false;
 	}
+
+	bool pruneSolutionDerived(int move, bool solutionDerived) {
+		if (!solutionDerived)
+			return false;
+		if (move == R || move == Rp || move == L || move == Lp ||
+			move == F || move == Fp || move == B || move == Bp)
+			return true;
+		return false;
+	}
 };
 
 #endif // !MOVE_PRUNER_H

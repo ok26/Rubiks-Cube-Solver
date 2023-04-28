@@ -17,13 +17,13 @@
 #include <string>
 #include <array>
 
-#define CYELLOW	1.00f, 	0.84f, 	0.00f
-#define CBLUE	0.00f, 	0.27f, 	0.78f
-#define CRED		0.72f, 	0.07f, 	0.10f
-#define CGREEN	0.00f, 	0.61f, 	0.12f
-#define CORANGE	1.00f, 	0.35f, 	0.00f
-#define CWHITE	1.00f, 	1.00f, 	1.00f
-#define CBLACK	0.00f, 	0.00f, 	0.00f
+#define YELLOW	1.00f, 	0.84f, 	0.00f
+#define BLUE	0.00f, 	0.27f, 	0.78f
+#define RED		0.72f, 	0.07f, 	0.10f
+#define GREEN	0.00f, 	0.61f, 	0.12f
+#define ORANGE	1.00f, 	0.35f, 	0.00f
+#define WHITE	1.00f, 	1.00f, 	1.00f
+#define BLACK	0.00f, 	0.00f, 	0.00f
 
 enum cubeletFaces { CORNER, EDGEU, EDGED, EDGER, EDGEL, CENTER, NONE };
 unsigned int corner, edgeU, edgeR, edgeL, edgeD, center, blank;
@@ -100,32 +100,32 @@ public:
 					cubeletIndices[x][y][z] = x * 9 + y * 3 + z - (x * 9 + y * 3 + z > 12);
 					
 
-		cubelets.push_back(new Cubelet({ {CBLACK}, {CBLACK}, {CBLACK}, {CBLUE}, {CORANGE}, {CWHITE} }, glm::vec3(-2.1f, -2.1f, -2.1f), { NONE, NONE, NONE, CORNER, CORNER, CORNER }));
-		cubelets.push_back(new Cubelet({ {CBLACK}, {CBLACK}, {CBLACK}, {CBLUE}, {CBLACK}, {CWHITE} }, glm::vec3(-2.1f, -2.1f, 0.0f), { NONE, NONE, NONE, EDGEL, NONE, EDGEL }));
-		cubelets.push_back(new Cubelet({ {CBLACK}, {CBLACK}, {CRED}, {CBLUE}, {CBLACK}, {CWHITE} }, glm::vec3(-2.1f, -2.1f, 2.1f), { NONE, NONE, CORNER, CORNER, NONE, CORNER }));
-		cubelets.push_back(new Cubelet({ {CBLACK}, {CBLACK}, {CBLACK}, {CBLUE}, {CORANGE}, {CBLACK} }, glm::vec3(-2.1f, 0.0f, -2.1f), { NONE, NONE, NONE, EDGED, EDGEL, NONE }));
-		cubelets.push_back(new Cubelet({ {CBLACK}, {CBLACK}, {CBLACK}, {CBLUE}, {CBLACK}, {CBLACK} }, glm::vec3(-2.1f, 0.0f, 0.0f), { NONE, NONE, NONE, CENTER, NONE, NONE }));
-		cubelets.push_back(new Cubelet({ {CBLACK}, {CBLACK}, {CRED}, {CBLUE}, {CBLACK}, {CBLACK} }, glm::vec3(-2.1f, 0.0f, 2.1f), { NONE, NONE, EDGEL, EDGEU, NONE, NONE }));
-		cubelets.push_back(new Cubelet({ {CYELLOW}, {CBLACK}, {CBLACK}, {CBLUE}, {CORANGE}, {CBLACK} }, glm::vec3(-2.1f, 2.1f, -2.1f), { CORNER, NONE, NONE, CORNER, CORNER, NONE }));
-		cubelets.push_back(new Cubelet({ {CYELLOW}, {CBLACK}, {CBLACK}, {CBLUE}, {CBLACK}, {CBLACK} }, glm::vec3(-2.1f, 2.1f, 0.0f), { EDGEL, NONE, NONE, EDGER, NONE, NONE }));
-		cubelets.push_back(new Cubelet({ {CYELLOW}, {CBLACK}, {CRED}, {CBLUE}, {CBLACK}, {CBLACK} }, glm::vec3(-2.1f, 2.1f, 2.1f), { CORNER, NONE, CORNER, CORNER, NONE, NONE }));
-		cubelets.push_back(new Cubelet({ {CBLACK}, {CBLACK}, {CBLACK}, {CBLACK}, {CORANGE}, {CWHITE} }, glm::vec3(0.0f, -2.1f, -2.1f), { NONE, NONE, NONE, NONE, EDGEU, EDGED }));
-		cubelets.push_back(new Cubelet({ {CBLACK}, {CBLACK}, {CBLACK}, {CBLACK}, {CBLACK}, {CWHITE} }, glm::vec3(0.0f, -2.1f, 0.0f), { NONE, NONE, NONE, NONE, NONE, CENTER })); // WHITE
-		cubelets.push_back(new Cubelet({ {CBLACK}, {CBLACK}, {CRED}, {CBLACK}, {CBLACK}, {CWHITE} }, glm::vec3(0.0f, -2.1f, 2.1f), { NONE, NONE, EDGEU, NONE, NONE, EDGEU }));
-		cubelets.push_back(new Cubelet({ {CBLACK}, {CBLACK}, {CBLACK}, {CBLACK}, {CORANGE}, {CBLACK} }, glm::vec3(0.0f, 0.0f, -2.1f), { NONE, NONE, NONE, NONE, CENTER, NONE })); // ORANGE
-		cubelets.push_back(new Cubelet({ {CBLACK}, {CBLACK}, {CRED}, {CBLACK}, {CBLACK}, {CBLACK} }, glm::vec3(0.0f, 0.0f, 2.1f), { NONE, NONE, CENTER, NONE, NONE, NONE })); // RED
-		cubelets.push_back(new Cubelet({ {CYELLOW}, {CBLACK}, {CBLACK}, {CBLACK}, {CORANGE}, {CBLACK} }, glm::vec3(0.0f, 2.1f, -2.1f), { EDGED, NONE, NONE, NONE, EDGED, NONE }));
-		cubelets.push_back(new Cubelet({ {CYELLOW}, {CBLACK}, {CBLACK}, {CBLACK}, {CBLACK}, {CBLACK} }, glm::vec3(0.0f, 2.1f, 0.0f), { CENTER, NONE, NONE, NONE, NONE, NONE })); // YELLOW
-		cubelets.push_back(new Cubelet({ {CYELLOW}, {CBLACK}, {CRED}, {CBLACK}, {CBLACK}, {CBLACK} }, glm::vec3(0.0f, 2.1f, 2.1f), { EDGEU, NONE, EDGED, NONE, NONE, NONE }));
-		cubelets.push_back(new Cubelet({ {CBLACK}, {CGREEN}, {CBLACK}, {CBLACK}, {CORANGE}, {CWHITE} }, glm::vec3(2.1f, -2.1f, -2.1f), { NONE, CORNER, NONE, NONE, CORNER, CORNER }));
-		cubelets.push_back(new Cubelet({ {CBLACK}, {CGREEN}, {CBLACK}, {CBLACK}, {CBLACK}, {CWHITE} }, glm::vec3(2.1f, -2.1f, 0.0f), { NONE, EDGEL, NONE, NONE, NONE, EDGER }));
-		cubelets.push_back(new Cubelet({ {CBLACK}, {CGREEN}, {CRED}, {CBLACK}, {CBLACK}, {CWHITE} }, glm::vec3(2.1f, -2.1f, 2.1f), { NONE, CORNER, CORNER, NONE, NONE, CORNER }));
-		cubelets.push_back(new Cubelet({ {CBLACK}, {CGREEN}, {CBLACK}, {CBLACK}, {CORANGE}, {CBLACK} }, glm::vec3(2.1f, 0.0f, -2.1f), { NONE, EDGED, NONE, NONE, EDGER, NONE }));
-		cubelets.push_back(new Cubelet({ {CBLACK}, {CGREEN}, {CBLACK}, {CBLACK}, {CBLACK}, {CBLACK} }, glm::vec3(2.1f, 0.0f, 0.0f), { NONE, CENTER, NONE, NONE, NONE, NONE })); // GREEN
-		cubelets.push_back(new Cubelet({ {CBLACK}, {CGREEN}, {CRED}, {CBLACK}, {CBLACK}, {CBLACK} }, glm::vec3(2.1f, 0.0f, 2.1f), { NONE, EDGEU, EDGER, NONE, NONE, NONE }));
-		cubelets.push_back(new Cubelet({ {CYELLOW}, {CGREEN}, {CBLACK}, {CBLACK}, {CORANGE}, {CBLACK} }, glm::vec3(2.1f, 2.1f, -2.1f), { CORNER, CORNER, NONE, NONE, CORNER, NONE }));
-		cubelets.push_back(new Cubelet({ {CYELLOW}, {CGREEN}, {CBLACK}, {CBLACK}, {CBLACK}, {CBLACK} }, glm::vec3(2.1f, 2.1f, 0.0f), { EDGER, EDGER, NONE, NONE, NONE }));
-		cubelets.push_back(new Cubelet({ {CYELLOW}, {CGREEN}, {CRED}, {CBLACK}, {CBLACK}, {CBLACK} }, glm::vec3(2.1f, 2.1f, 2.1f), { CORNER, CORNER, CORNER, NONE, NONE, NONE }));
+		cubelets.push_back(new Cubelet({ {BLACK}, {BLACK}, {BLACK}, {BLUE}, {ORANGE}, {WHITE} }, glm::vec3(-2.1f, -2.1f, -2.1f), { NONE, NONE, NONE, CORNER, CORNER, CORNER }));
+		cubelets.push_back(new Cubelet({ {BLACK}, {BLACK}, {BLACK}, {BLUE}, {BLACK}, {WHITE} }, glm::vec3(-2.1f, -2.1f, 0.0f), { NONE, NONE, NONE, EDGEL, NONE, EDGEL }));
+		cubelets.push_back(new Cubelet({ {BLACK}, {BLACK}, {RED}, {BLUE}, {BLACK}, {WHITE} }, glm::vec3(-2.1f, -2.1f, 2.1f), { NONE, NONE, CORNER, CORNER, NONE, CORNER }));
+		cubelets.push_back(new Cubelet({ {BLACK}, {BLACK}, {BLACK}, {BLUE}, {ORANGE}, {BLACK} }, glm::vec3(-2.1f, 0.0f, -2.1f), { NONE, NONE, NONE, EDGED, EDGEL, NONE }));
+		cubelets.push_back(new Cubelet({ {BLACK}, {BLACK}, {BLACK}, {BLUE}, {BLACK}, {BLACK} }, glm::vec3(-2.1f, 0.0f, 0.0f), { NONE, NONE, NONE, CENTER, NONE, NONE }));
+		cubelets.push_back(new Cubelet({ {BLACK}, {BLACK}, {RED}, {BLUE}, {BLACK}, {BLACK} }, glm::vec3(-2.1f, 0.0f, 2.1f), { NONE, NONE, EDGEL, EDGEU, NONE, NONE }));
+		cubelets.push_back(new Cubelet({ {YELLOW}, {BLACK}, {BLACK}, {BLUE}, {ORANGE}, {BLACK} }, glm::vec3(-2.1f, 2.1f, -2.1f), { CORNER, NONE, NONE, CORNER, CORNER, NONE }));
+		cubelets.push_back(new Cubelet({ {YELLOW}, {BLACK}, {BLACK}, {BLUE}, {BLACK}, {BLACK} }, glm::vec3(-2.1f, 2.1f, 0.0f), { EDGEL, NONE, NONE, EDGER, NONE, NONE }));
+		cubelets.push_back(new Cubelet({ {YELLOW}, {BLACK}, {RED}, {BLUE}, {BLACK}, {BLACK} }, glm::vec3(-2.1f, 2.1f, 2.1f), { CORNER, NONE, CORNER, CORNER, NONE, NONE }));
+		cubelets.push_back(new Cubelet({ {BLACK}, {BLACK}, {BLACK}, {BLACK}, {ORANGE}, {WHITE} }, glm::vec3(0.0f, -2.1f, -2.1f), { NONE, NONE, NONE, NONE, EDGEU, EDGED }));
+		cubelets.push_back(new Cubelet({ {BLACK}, {BLACK}, {BLACK}, {BLACK}, {BLACK}, {WHITE} }, glm::vec3(0.0f, -2.1f, 0.0f), { NONE, NONE, NONE, NONE, NONE, CENTER })); // WHITE
+		cubelets.push_back(new Cubelet({ {BLACK}, {BLACK}, {RED}, {BLACK}, {BLACK}, {WHITE} }, glm::vec3(0.0f, -2.1f, 2.1f), { NONE, NONE, EDGEU, NONE, NONE, EDGEU }));
+		cubelets.push_back(new Cubelet({ {BLACK}, {BLACK}, {BLACK}, {BLACK}, {ORANGE}, {BLACK} }, glm::vec3(0.0f, 0.0f, -2.1f), { NONE, NONE, NONE, NONE, CENTER, NONE })); // ORANGE
+		cubelets.push_back(new Cubelet({ {BLACK}, {BLACK}, {RED}, {BLACK}, {BLACK}, {BLACK} }, glm::vec3(0.0f, 0.0f, 2.1f), { NONE, NONE, CENTER, NONE, NONE, NONE })); // RED
+		cubelets.push_back(new Cubelet({ {YELLOW}, {BLACK}, {BLACK}, {BLACK}, {ORANGE}, {BLACK} }, glm::vec3(0.0f, 2.1f, -2.1f), { EDGED, NONE, NONE, NONE, EDGED, NONE }));
+		cubelets.push_back(new Cubelet({ {YELLOW}, {BLACK}, {BLACK}, {BLACK}, {BLACK}, {BLACK} }, glm::vec3(0.0f, 2.1f, 0.0f), { CENTER, NONE, NONE, NONE, NONE, NONE })); // YELLOW
+		cubelets.push_back(new Cubelet({ {YELLOW}, {BLACK}, {RED}, {BLACK}, {BLACK}, {BLACK} }, glm::vec3(0.0f, 2.1f, 2.1f), { EDGEU, NONE, EDGED, NONE, NONE, NONE }));
+		cubelets.push_back(new Cubelet({ {BLACK}, {GREEN}, {BLACK}, {BLACK}, {ORANGE}, {WHITE} }, glm::vec3(2.1f, -2.1f, -2.1f), { NONE, CORNER, NONE, NONE, CORNER, CORNER }));
+		cubelets.push_back(new Cubelet({ {BLACK}, {GREEN}, {BLACK}, {BLACK}, {BLACK}, {WHITE} }, glm::vec3(2.1f, -2.1f, 0.0f), { NONE, EDGEL, NONE, NONE, NONE, EDGER }));
+		cubelets.push_back(new Cubelet({ {BLACK}, {GREEN}, {RED}, {BLACK}, {BLACK}, {WHITE} }, glm::vec3(2.1f, -2.1f, 2.1f), { NONE, CORNER, CORNER, NONE, NONE, CORNER }));
+		cubelets.push_back(new Cubelet({ {BLACK}, {GREEN}, {BLACK}, {BLACK}, {ORANGE}, {BLACK} }, glm::vec3(2.1f, 0.0f, -2.1f), { NONE, EDGED, NONE, NONE, EDGER, NONE }));
+		cubelets.push_back(new Cubelet({ {BLACK}, {GREEN}, {BLACK}, {BLACK}, {BLACK}, {BLACK} }, glm::vec3(2.1f, 0.0f, 0.0f), { NONE, CENTER, NONE, NONE, NONE, NONE })); // GREEN
+		cubelets.push_back(new Cubelet({ {BLACK}, {GREEN}, {RED}, {BLACK}, {BLACK}, {BLACK} }, glm::vec3(2.1f, 0.0f, 2.1f), { NONE, EDGEU, EDGER, NONE, NONE, NONE }));
+		cubelets.push_back(new Cubelet({ {YELLOW}, {GREEN}, {BLACK}, {BLACK}, {ORANGE}, {BLACK} }, glm::vec3(2.1f, 2.1f, -2.1f), { CORNER, CORNER, NONE, NONE, CORNER, NONE }));
+		cubelets.push_back(new Cubelet({ {YELLOW}, {GREEN}, {BLACK}, {BLACK}, {BLACK}, {BLACK} }, glm::vec3(2.1f, 2.1f, 0.0f), { EDGER, EDGER, NONE, NONE, NONE }));
+		cubelets.push_back(new Cubelet({ {YELLOW}, {GREEN}, {RED}, {BLACK}, {BLACK}, {BLACK} }, glm::vec3(2.1f, 2.1f, 2.1f), { CORNER, CORNER, CORNER, NONE, NONE, NONE }));
 	}
 
 	void LoadVertices() {
@@ -176,8 +176,8 @@ public:
 
 					if (animation.running && (moveX == x || moveY == y || moveZ == z || all != -1)) {
 						glm::vec3 axisRot = glm::vec3(0.0f);
-						axisRot[animation.axis] = 1.0f;
-						float angleRot = 90.0f * animation.animationStep - cubelets[cubeletIndices[x][y][z]]->lastRotationAngle;
+						axisRot[ animation.axis ] = 1.0f;
+						float angleRot = 90.0f * animation.animationStep -cubelets[cubeletIndices[x][y][z]]->lastRotationAngle;
 						cubelets[cubeletIndices[x][y][z]]->lastRotationAngle += angleRot;
 						if (animation.inverseMove)
 							angleRot *= -1;

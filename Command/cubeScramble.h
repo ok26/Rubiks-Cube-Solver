@@ -10,7 +10,9 @@ using namespace std;
 
 class CubeScrambler {
 public:
-	CubeScrambler() {}
+	CubeScrambler(unsigned int seed) {
+		srand(seed);
+	}
 
 	void scrambleCube100(queue<Move> *moveQueue) {
 		for (int i = 0; i < 100; i++) {
@@ -18,7 +20,21 @@ public:
 			move.target = rand() % 6;
 			while (!moveQueue->empty() && move.target == moveQueue->back().target)
 				move.target = rand() % 6;
-			move.duration = 0.08f;
+			move.duration = 0.01f;
+			move.axis = getAxis(move.target);
+			move.inverse = rand() % 2;
+			moveQueue->push(move);
+		}
+	}
+
+	void scrambleCubeWithRandomMoveNr(queue<Move>* moveQueue, int upperBound, int lowerBound, float animationDuration) {
+		int moveNr = (rand() % (upperBound - lowerBound + 1)) + lowerBound;
+		for (int i = 0; i < moveNr; i++) {
+			Move move;
+			move.target = rand() % 6;
+			while (!moveQueue->empty() && move.target == moveQueue->back().target)
+				move.target = rand() % 6;
+			move.duration = animationDuration;
 			move.axis = getAxis(move.target);
 			move.inverse = rand() % 2;
 			moveQueue->push(move);
