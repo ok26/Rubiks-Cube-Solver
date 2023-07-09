@@ -74,11 +74,7 @@ class KociembaSolver {
 	G2DatabaseController databaseG2Controller;
 	MoveController moveController;
 
-	PatternDatabase* kociembaDatabaseG2;
-
 	int availableMovesG2 = 151524;
-	int shortestFoundTripleSearch = 100;
-	vector<int> shortestTripleSearchSolution;
 
 public:
 	bool tablesInitialized = false;
