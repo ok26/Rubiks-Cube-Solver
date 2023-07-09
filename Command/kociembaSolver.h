@@ -17,9 +17,9 @@
 #include <queue>
 #include <vector>
 #include <stack>
-
+#include <thread>
 #include <chrono>
-
+#include <future>
 
 struct CubeStateG1 {
 	int flipUDSlice;
@@ -77,6 +77,8 @@ class KociembaSolver {
 	PatternDatabase* kociembaDatabaseG2;
 
 	int availableMovesG2 = 151524;
+	int shortestFoundTripleSearch = 100;
+	vector<int> shortestTripleSearchSolution;
 
 public:
 	bool tablesInitialized = false;
@@ -122,7 +124,39 @@ public:
 		return stateG2;
 	}
 
-	std::vector<int> kocimbeaTwoPhase(CubeIndexModel& cube, int timeBlock) {
+	std::vector<int> tripleSearch(CubeIndexModel cube1, int timeBlock, bool print = true) {
+		SymmetryIndexer symIndexer;
+
+		CubeIndexModel cube2 = cube1, cube3 = cube1;
+		cube2 = symIndexer.overlayTripleSearchSymmetry(cube1, 0);
+		cube3 = symIndexer.overlayTripleSearchSymmetry(cube1, 1);
+		
+		auto ret1 = std::async(&KociembaSolver::kociembaTwoPhase, this, cube1, timeBlock, false);
+		auto ret2 = std::async(&KociembaSolver::kociembaTwoPhase, this, cube2, timeBlock, false);
+		auto ret3 = std::async(&KociembaSolver::kociembaTwoPhase, this, cube3, timeBlock, false);
+
+		std::vector<int> moves1 = ret1.get();
+		std::vector<int> moves2 = ret2.get();
+		std::vector<int> moves3 = ret3.get();
+
+		std::vector<int> moves;
+		MoveStore moveStore;
+		if (moves1.size() <= moves2.size() && moves1.size() <= moves3.size())
+			moves = moves1;
+		else if (moves2.size() <= moves1.size() && moves2.size() <= moves3.size())
+			moves = moveStore.translateSymmetryMoves(moves2, 0);
+		else
+			moves = moveStore.translateSymmetryMoves(moves3, 1);
+
+		if (print) {
+			cout << "Solution found with " << moves.size() << " moves!\n";
+			moveStore.printMoveSequence(moves);
+			cout << "\n";
+		}
+		return moves;
+	}
+
+	std::vector<int> kociembaTwoPhase(CubeIndexModel cube, int timeBlock, bool print = true) {
 		typedef priority_queue<PrioritizedMoveG1, vector<PrioritizedMoveG1>, greater<PrioritizedMoveG1>> moveQueue_t;
 
 		SolutionSimplifier solutionSimplifier;
@@ -145,11 +179,15 @@ public:
 		if (nextBound == 0) {
 			CubeStateG2 stateG2 = getG2StateFromG1State(startingNode);
 			solution = solveG2WithBlock(stateG2, 1e9);
-			std::cout << "Found optimal solution with " << solution.size() << " moves!\n";
+			if (print)
+				std::cout << "Found optimal solution with " << solution.size() << " moves!\n";
 			solved = true;
 		}
 
 		auto startTime = chrono::high_resolution_clock::now();
+		int nodesGenerated = 0;
+		int foundG1Solutions = 0;
+		int processedG1Solutions = 0;
 
 		while (!solved &&
 			chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - startTime).count() < timeBlock) {
@@ -161,8 +199,12 @@ public:
 				if (nextBound == 0 || nextBound == 0xFF)
 					break;
 
+				nodesGenerated = 0;
+				foundG1Solutions = 0;
+				processedG1Solutions = 0;
 				bound = nextBound;
-				cout << "Searching depth " << bound << "\n";
+				if (print)
+					cout << "Searching depth " << bound << "\n";
 				nextBound = 0xFF;
 			}
 
@@ -174,12 +216,16 @@ public:
 			if (curNode.depth != 0)
 				moves[curNode.depth - 1] = curNode.move;
 
-			if (curNode.depth == bound && databaseG1Controller.getNumMoves(curNode.cube.flipUDSlice, curNode.cube.cornerOri) == 0) {
-				
+			if (curNode.depth == bound) {
+
+				if (databaseG1Controller.getNumMoves(curNode.cube.flipUDSlice, curNode.cube.cornerOri) != 0)
+					continue;
+
+				foundG1Solutions++;
 				int g2EstMoves = databaseG2Controller.getNumCornPermMoves(curNode.cube.cornerPerm);
 
 				if (curNode.depth + g2EstMoves < foundSolutionLength) {	
-					
+					processedG1Solutions++;
 					CubeStateG2 stateG2 = getG2StateFromG1State(curNode.cube);
 					std::vector<int> solutionG2 = solveG2WithBlock(stateG2, foundSolutionLength - curNode.depth);
 
@@ -187,7 +233,8 @@ public:
 						solution.clear();
 						for (int i = 0; i < moves.size() && (int)moves.at(i) != 0xFF; i++)
 							solution.push_back(moves.at(i));
-						cout << "Found optimal solution with " << solution.size() << " moves!\n";
+						if (print)
+							cout << "Found optimal solution with " << solution.size() << " moves!\n";
 						break;
 					}
 
@@ -202,7 +249,8 @@ public:
 						solutionSimplifier.simplifySolution(solution);
 
 						foundSolutionLength = solution.size();
-						cout << "Found solution with " << foundSolutionLength << " moves!\n";
+						if (print)
+							cout << "Found solution with " << foundSolutionLength << " moves!\n";
 					}
 				}
 			}
@@ -228,7 +276,7 @@ public:
 						if (estSuccMoves <= bound)
 							successors.push({ newState, move, estSuccMoves });
 						else
-							nextBound = estSuccMoves;
+							nextBound = min(nextBound, estSuccMoves);
 					}
 
 				}
@@ -241,12 +289,14 @@ public:
 						(int)(curNode.depth + 1)
 						});
 					successors.pop();
+					nodesGenerated++;
 				}
 			}
 		}
-		
-		moveStore.printMoveSequence(solution);
-		cout << "\n";
+		if (print) {
+			moveStore.printMoveSequence(solution);
+			cout << "\n";
+		}
 		return solution;
 
 	}
@@ -320,9 +370,8 @@ public:
 							if (estSuccMoves <= bound)
 								successors.push({ newState, move, estSuccMoves });
 							else
-								nextBound = estSuccMoves;
+								nextBound = min(nextBound, estSuccMoves);
 						}
-
 					}
 				}
 
@@ -348,193 +397,3 @@ public:
 
 #endif
 
-
-//
-// All data for recurrent Kociemba G1 with all different time-blocks
-// 
-//----------------------------------------------------------------------------
-// 
-// 10 milliseconds time-block
-// 
-// Correct symmetries:
-// 18: 
-// 19: ***				->  3 ->  9%
-// 20: *********		->  9 -> 28%
-// 21: **************	-> 14 -> 44%
-// 22: ******			->  6 -> 19%
-// 23: 
-// 
-// Average solution length -> 20.7
-// 
-// Correct symmetries + no indexModels:
-// 18: 
-// 19: *****		->  5 -> 19%
-// 20: ***********	-> 11 -> 42%
-// 21: ********		->  8 -> 31%
-// 22: **			->  2 -> 8%
-// 23: 
-// 
-// Average solution length -> 20.2
-// 
-//----------------------------------------------------------------------------
-// 
-// 100 milliseconds time-block
-// 
-// Correct symmetries:
-// 18: 
-// 19: *******		->  7 -> 27%
-// 20: ***********	-> 11 -> 42%
-// 21: ********		->  8 -> 31%
-// 22: 
-// 
-// Average solution length -> 20.0
-// 
-// Correct symmetries + no indexModels:
-// 16: 
-// 17: *			->  1 -> 4%
-// 18: ***			->  3 -> 11%
-// 19: **********	-> 10 -> 39%
-// 20: *******		->  7 -> 27%
-// 21: ****			->  4 -> 15%
-// 22: *			->  1 -> 4%
-// 23: 
-// 
-// Average solution length -> 19.5
-// 
-//----------------------------------------------------------------------------
-// 
-// 1 second time-block
-// 
-// Incorrect symmetries:
-// 20:
-// 21: ******** -> 8 -> 50%
-// 22: ******** -> 8 -> 50%
-// 23:
-//
-// Average solution length -> 21.5
-// 
-// Correct symmetries:
-// 18:
-// 19: *******		->  7 -> 41%
-// 20: **********	-> 10 -> 59%
-// 21:
-// 
-// Average solution length -> 19.6
-// 
-// Correct symmetries + no indexModels:
-// 18: 
-// 19: **************	-> 14 -> 54%
-// 20: ************		-> 12 -> 46%
-// 21: 
-// 
-// Average solution length -> 19.4
-// 
-//----------------------------------------------------------------------------
-// 
-// 5 seconds time-block
-// 
-// Incorrect symmetries:
-// 17: 
-// 18: *		-> 1 ->  6%
-// 19: 
-// 20: *******	-> 7 -> 41%
-// 21: *******	-> 7 -> 41%
-// 22: *		-> 1 ->  6%
-// 23: *		-> 1 ->  6%
-// 24: 
-// 
-// Average solution length -> 20.6
-// 
-// Correct symmetries:
-// 16:
-// 17: *			-> 1 -> 5%
-// 18: *			-> 1 -> 5%
-// 19: ********		-> 8 -> 42%
-// 20: *********	-> 9 -> 48%
-// 21: 
-// 
-// Average solution length -> 19.3
-// 
-// Correct symmetries + no indexModels:
-// 16: 
-// 17: *				->  1 -> 4%
-// 18: ******			->  6 -> 21%
-// 19: ****************	-> 16 -> 57%
-// 20: *****			->  5 -> 18%
-// 21: 
-// 
-// Average solution length -> 18.9
-// 
-//----------------------------------------------------------------------------
-// 
-// 10 seconds time-block 
-// 
-// Incorrect symmetries:
-// 17: 
-// 18: **		-> 2 -> 12%
-// 19: 
-// 20: *******	-> 7 -> 44%
-// 21: ******	-> 6 -> 38%
-// 22: *		-> 1 ->  6%
-// 23: 
-// 
-// Average solution length -> 20.2
-//
-//----------------------------------------------------------------------------
-// 
-// 30 seconds time-block 
-// 
-// Incorrect symmetries:
-// 17: 
-// 18: *		-> 1 -> 6%
-// 19: ******	-> 6 -> 38%
-// 20: ******	-> 6 -> 38%
-// 21: ***		-> 3 -> 18%
-// 22: 
-// 
-// Average solution length -> 19.7
-// 
-// Correct symmetries:
-// 15: 
-// 16: 
-// 17: 
-// 18: ******	-> 6 -> 33%
-// 19: ********	-> 8 -> 45%
-// 20: ****		-> 4 -> 22%
-// 21: 
-// 
-// Average solution length -> 18.9
-//
-//----------------------------------------------------------------------------
-// 
-// 60 seconds time-block 
-// 
-// Incorrect symmetries:
-// 18: 
-// 19: *****	-> 5 -> 33%
-// 20: *******	-> 7 -> 47%
-// 21: ***		-> 3 -> 20%
-// 22: 
-// 
-// Average solution length -> 19.9
-//
-//----------------------------------------------------------------------------
-// 
-// 300 seconds time-block 
-// 
-// Incorrect symmetries:
-// 15: 
-// 16: **
-// 17: 
-// 18: **
-// 19: *
-// 20: ***
-// 21: *
-// 22: 
-// 
-// Average solution length -> 18.6
-// 
-//----------------------------------------------------------------------------
-// 
-// 
-//

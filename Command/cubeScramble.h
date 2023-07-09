@@ -27,6 +27,15 @@ public:
 		}
 	}
 
+	void scrambleCube(CubeIndexModel& cube, int moves) {
+		int lastMove = -1;
+		for (int i = 0; i < moves; i++) {
+			int move = rand() % 18;
+			while ((move % 3) == (lastMove % 3)) move = rand() % 18;
+			cube.doMove(move);
+		}
+	}
+
 	void scrambleCubeWithRandomMoveNr(queue<Move>* moveQueue, int upperBound, int lowerBound, float animationDuration) {
 		int moveNr = (rand() % (upperBound - lowerBound + 1)) + lowerBound;
 		for (int i = 0; i < moveNr; i++) {

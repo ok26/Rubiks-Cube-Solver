@@ -6,6 +6,7 @@
 #include <array>
 #include <string>
 #include <vector>
+#include <array>
 
 using namespace std;
 
@@ -27,6 +28,18 @@ public:
 		for (int move : sequence)
 			cout << cubeMoveNames[move] << " ";
 		cout << "\n";
+	}
+
+	//Only supports symCoord 0 and 1 for triple search
+	std::vector<int> translateSymmetryMoves(vector<int> moves, int symmetryCoord) {
+		std::array<int, 18> moveTranslations;
+		if (symmetryCoord == 0) moveTranslations = { U, Up, U2, D, Dp, D2, L, Lp, L2, R, Rp, R2, F, Fp, F2, B, Bp, B2 };
+		else moveTranslations = { R, Rp, R2, L, Lp, L2, F, Fp, F2, B, Bp, B2, D, Dp, D2, U, Up, U2 };
+
+		std::vector<int> translatedMoves;
+		for (int i = 0; i < moves.size(); i++)
+			translatedMoves.push_back(moveTranslations[moves[i]]);
+		return translatedMoves;
 	}
 
 	vector<Move> indexToAnimationMove(vector<int> moveSequence, float duration) {
