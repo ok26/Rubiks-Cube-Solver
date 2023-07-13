@@ -8,6 +8,7 @@
 
 #include "Util/shader.h"
 #include "Util/camera.h"
+#include "Util/progressBar.h"
 
 #include "Model/cube.h"
 #include "Model/animation.h"
@@ -23,6 +24,8 @@
 #include <iostream>
 #include <queue>
 #include <map>
+#include <thread>
+#include <chrono>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
@@ -30,10 +33,11 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
 void configureLight(Shader& shader, glm::mat4 projection, glm::mat4 view, glm::mat4 model);
 
-const unsigned int SCR_WIDTH = 1200;
-const unsigned int SCR_HEIGHT = 900;
+const unsigned int SCR_WIDTH = 1920;
+const unsigned int SCR_HEIGHT = 1080;
+const unsigned int FPS = 144;
 
-Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
+Camera camera(glm::vec3(0.0f, 7.0f, 20.0f));
 float lastX = (float)SCR_WIDTH / 2.0;
 float lastY = (float)SCR_HEIGHT / 2.0;
 bool firstMouse = true;
@@ -43,22 +47,18 @@ Animation currentAnimation(false);
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
-std::vector<glm::vec3> pointLights = {camera.Position};
-
 std::queue<Move> moveQueue;
 MoveStore moveStore;
 
 std::map<int, bool> pressedKeys;
 std::array<int, 13> moveKeys = { GLFW_KEY_U, GLFW_KEY_N, GLFW_KEY_R, GLFW_KEY_L, GLFW_KEY_F,
                                 GLFW_KEY_B, GLFW_KEY_LEFT, GLFW_KEY_RIGHT, GLFW_KEY_UP, GLFW_KEY_DOWN, 
-                                GLFW_KEY_Y, GLFW_KEY_T, GLFW_KEY_I};
+                                GLFW_KEY_Y, GLFW_KEY_T};
 
 CubeScrambler cubeScrambler((unsigned int)time(nullptr));
 ThistlewaiteSolver thistlewaiteSolver(false);
 KociembaSolver kociembaSolver;
-CubeIndexModel rubiksCubeIndexModel = CubeIndexModel();
-
-SymmetryIndexer symmetryIndexer;
+CubeIndexModel rubiksCubeIndexModel;
 
 std::array<int, 6> recurrentKocimebaG1TimeBlock = { 10, 100, 1000, 5000, 10000, 30000 };
 
@@ -74,7 +74,7 @@ int main() {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Rubik's Cube Solver", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Rubik's Cube Solver", glfwGetPrimaryMonitor(), NULL);
     if (window == NULL) {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
@@ -104,6 +104,7 @@ int main() {
         float currentFrame = static_cast<float>(glfwGetTime());
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
+        std::this_thread::sleep_for(std::chrono::milliseconds((int)((1.0f / FPS - deltaTime) * 1000)));
 
         processInput(window);
 
@@ -151,7 +152,7 @@ void configureLight(Shader& shader, glm::mat4 projection, glm::mat4 view, glm::m
     shader.setVec3("dirLight.diffuse", 0.4f, 0.4f, 0.4f);
     shader.setVec3("dirLight.specular", 0.5f, 0.5f, 0.5f);
 
-    for (int i = 0; i < pointLights.size(); i++) {
+    for (int i = 0; i < 1; i++) {
         shader.setVec3("pointLights[" + std::to_string(i) + "].position", camera.Position);
         shader.setVec3("pointLights[" + std::to_string(i) + "].ambient", 0.1f, 0.1f, 0.1f);
         shader.setVec3("pointLights[" + std::to_string(i) + "].diffuse", 0.8f, 0.8f, 0.8f);
@@ -229,21 +230,35 @@ void processInput(GLFWwindow* window) {
         cubeScrambler.scrambleCubeWithRandomMoveNr(&moveQueue, 25, 35, 0.13f);
 
     else if (glfwGetKey(window, GLFW_KEY_F1) == GLFW_PRESS && solverReady(kociembaSolver.tablesInitialized)) {
-        vector<int> solution = kociembaSolver.kocimbeaTwoPhase(rubiksCubeIndexModel, recurrentKocimebaG1TimeBlock[currentTimeBlock]);
+        vector<int> solution = kociembaSolver.tripleSearch(rubiksCubeIndexModel, recurrentKocimebaG1TimeBlock[currentTimeBlock]);
         vector<Move> moveSequence = moveStore.indexToAnimationMove(solution, 0.15f);
         for (Move move : moveSequence)
             moveQueue.push(move);
     }
-    else if (glfwGetKey(window, GLFW_KEY_F2) == GLFW_PRESS && solverReady(thistlewaiteSolver.tablesInitialized)) {
-        vector<int> solution = thistlewaiteSolver.solveCubeIDA(rubiksCubeIndexModel);
-        vector<Move> moveSequence = moveStore.indexToAnimationMove(solution, 0.15f);
-        for (Move move : moveSequence)
-            moveQueue.push(move);
+    else if (glfwGetKey(window, GLFW_KEY_F2) == GLFW_PRESS) { // Dont hold!
+        int CUBES = 1000;
+        ProgressBar progressBar(70);
+        int avg = 0;
+        float lastProgress = 0.0f, curProgress = 0.0f;
+        progressBar.updateProgressBar(0.0f);
+        for (int i = 0; i < CUBES; i++) {
+            CubeIndexModel cube;
+            cubeScrambler.scrambleCube(cube, 1000);
+            vector<int> solution = kociembaSolver.tripleSearch(cube, recurrentKocimebaG1TimeBlock[currentTimeBlock], false);
+            avg += solution.size();
+            curProgress = (float)((i + 1.0f) / (float)CUBES) * 100.0f;
+            if ((int)(curProgress) > (int)(lastProgress)) {
+                progressBar.updateProgressBar(curProgress / 100);
+                lastProgress = curProgress;
+            }
+        }
+        cout << "Solved " << CUBES << " cubes with " << recurrentKocimebaG1TimeBlock[currentTimeBlock] << "ms time block in " << (float)avg / (float)CUBES << " average moves\n";
     }
   
     if (glfwGetKey(window, GLFW_KEY_Y) == GLFW_PRESS && !pressedKeys[GLFW_KEY_Y]) {
         pressedKeys[GLFW_KEY_Y] = true;
         rubiksCubeIndexModel.printData();
+        std::cout << "\n";
     }
     
     if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS && !pressedKeys[GLFW_KEY_T]) {
@@ -257,12 +272,6 @@ void processInput(GLFWwindow* window) {
             cout << "1 second\n";
         else
             cout << timeBlock << " milliseconds\n";
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS && !pressedKeys[GLFW_KEY_I]) {
-        pressedKeys[GLFW_KEY_I] = true;
-        if (!thistlewaiteSolver.tablesInitialized)
-            thistlewaiteSolver.initializeTables();
     }
 
     for (unsigned int key : moveKeys)

@@ -75,6 +75,7 @@ class KociembaSolver {
 	MoveController moveController;
 
 	int availableMovesG2 = 151524;
+	int bestSolutionFound = 1e9;
 
 public:
 	bool tablesInitialized = false;
@@ -122,18 +123,21 @@ public:
 
 	std::vector<int> tripleSearch(CubeIndexModel cube1, int timeBlock, bool print = true) {
 		SymmetryIndexer symIndexer;
-
-		CubeIndexModel cube2 = cube1, cube3 = cube1;
-		cube2 = symIndexer.overlayTripleSearchSymmetry(cube1, 0);
-		cube3 = symIndexer.overlayTripleSearchSymmetry(cube1, 1);
+		CubeIndexModel cube2 = symIndexer.overlayTripleSearchSymmetry(cube1, 0);
+		CubeIndexModel cube3 = symIndexer.overlayTripleSearchSymmetry(cube1, 1);
+		CubeIndexModel cube4 = cube1;
+		cube4.doMove(F);
 		
-		auto ret1 = std::async(&KociembaSolver::kociembaTwoPhase, this, cube1, timeBlock, false);
-		auto ret2 = std::async(&KociembaSolver::kociembaTwoPhase, this, cube2, timeBlock, false);
-		auto ret3 = std::async(&KociembaSolver::kociembaTwoPhase, this, cube3, timeBlock, false);
-
+		auto ret1 = std::async(&KociembaSolver::kociembaTwoPhase, this, cube1, timeBlock, false, 1e9, 0);
+		auto ret2 = std::async(&KociembaSolver::kociembaTwoPhase, this, cube2, timeBlock, false, 1e9, 0);
+		auto ret3 = std::async(&KociembaSolver::kociembaTwoPhase, this, cube3, timeBlock, false, 1e9, 0);
+		auto ret4 = std::async(&KociembaSolver::kociembaTwoPhase, this, cube4, timeBlock, false, 1e9, 1);
+		
 		std::vector<int> moves1 = ret1.get();
 		std::vector<int> moves2 = ret2.get();
 		std::vector<int> moves3 = ret3.get();
+		std::vector<int> moves4 = ret4.get();
+		moves4.insert(moves4.begin(), F);
 
 		std::vector<int> moves;
 		MoveStore moveStore;
@@ -144,6 +148,9 @@ public:
 		else
 			moves = moveStore.translateSymmetryMoves(moves3, 1);
 
+		if (moves4.size() < moves.size())
+			moves = moves4;
+
 		if (print) {
 			cout << "Solution found with " << moves.size() << " moves!\n";
 			moveStore.printMoveSequence(moves);
@@ -152,13 +159,12 @@ public:
 		return moves;
 	}
 
-	std::vector<int> kociembaTwoPhase(CubeIndexModel cube, int timeBlock, bool print = true) {
+	std::vector<int> kociembaTwoPhase(CubeIndexModel cube, int timeBlock, bool print = true, int solutionDepthblock = 1e9, int adds = 0) {
 		typedef priority_queue<PrioritizedMoveG1, vector<PrioritizedMoveG1>, greater<PrioritizedMoveG1>> moveQueue_t;
 
 		SolutionSimplifier solutionSimplifier;
 		MovePruner movePruner;
 		MoveStore moveStore;
-		CubeSolver cubeSolver;
 
 		std::vector<int> solution;
 
@@ -169,22 +175,17 @@ public:
 		CubeStateG1 startingNode = getStateFromCube(cube);
 		int nextBound = databaseG1Controller.getNumMoves(startingNode.flipUDSlice, startingNode.cornerOri);
 
-		int foundSolutionLength = 1e9;
+		this->bestSolutionFound = solutionDepthblock;
 		bool solved = false;
 
 		if (nextBound == 0) {
 			CubeStateG2 stateG2 = getG2StateFromG1State(startingNode);
 			solution = solveG2WithBlock(stateG2, 1e9);
 			if (print)
-				std::cout << "Found optimal solution with " << solution.size() << " moves!\n";
+				std::cout << "Found solution with " << solution.size() << " moves!\n";
 			solved = true;
 		}
-
 		auto startTime = chrono::high_resolution_clock::now();
-		int nodesGenerated = 0;
-		int foundG1Solutions = 0;
-		int processedG1Solutions = 0;
-
 		while (!solved &&
 			chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - startTime).count() < timeBlock) {
 
@@ -192,12 +193,11 @@ public:
 
 				nodeStack.push({ startingNode, (int)0xFF, 0 });
 
-				if (nextBound == 0 || nextBound == 0xFF)
-					break;
-
-				nodesGenerated = 0;
-				foundG1Solutions = 0;
-				processedG1Solutions = 0;
+				//if (nextBound == 0 || nextBound == 0xFF) {
+					//cout << "hmmmmm";
+					//break;
+				//}
+					
 				bound = nextBound;
 				if (print)
 					cout << "Searching depth " << bound << "\n";
@@ -217,13 +217,11 @@ public:
 				if (databaseG1Controller.getNumMoves(curNode.cube.flipUDSlice, curNode.cube.cornerOri) != 0)
 					continue;
 
-				foundG1Solutions++;
 				int g2EstMoves = databaseG2Controller.getNumCornPermMoves(curNode.cube.cornerPerm);
 
-				if (curNode.depth + g2EstMoves < foundSolutionLength) {	
-					processedG1Solutions++;
+				if (curNode.depth + g2EstMoves + adds < this->bestSolutionFound) {	
 					CubeStateG2 stateG2 = getG2StateFromG1State(curNode.cube);
-					std::vector<int> solutionG2 = solveG2WithBlock(stateG2, foundSolutionLength - curNode.depth);
+					std::vector<int> solutionG2 = solveG2WithBlock(stateG2, this->bestSolutionFound - curNode.depth - adds);
 
 					if (solutionG2.empty()) {
 						solution.clear();
@@ -234,8 +232,8 @@ public:
 						break;
 					}
 
-					if (curNode.depth + solutionG2.size() -
-						solutionSimplifier.reductionDifference(curNode.move, solutionG2.front()) < foundSolutionLength) {
+					if (curNode.depth + solutionG2.size() + adds -
+						solutionSimplifier.reductionDifference(curNode.move, solutionG2.front()) < this->bestSolutionFound) {
 
 						solution.clear();
 						for (int i = 0; i < moves.size() && (int)moves.at(i) != 0xFF; i++)
@@ -243,10 +241,11 @@ public:
 
 						solution.insert(solution.end(), solutionG2.begin(), solutionG2.end());
 						solutionSimplifier.simplifySolution(solution);
-
-						foundSolutionLength = solution.size();
-						if (print)
-							cout << "Found solution with " << foundSolutionLength << " moves!\n";
+						if ((int)solution.size() + adds < this->bestSolutionFound) {
+							this->bestSolutionFound = solution.size() + adds;
+							if (print)
+								cout << "Found solution with " << this->bestSolutionFound << " moves!\n";
+						}
 					}
 				}
 			}
@@ -259,13 +258,14 @@ public:
 
 					if (curNode.depth == 0 || !movePruner.pruneMove(move, curNode.move)) {
 
-						CubeStateG1 newState;
-						newState.flipUDSlice = moveController.updateFlipUDSlice(curNode.cube.flipUDSlice, move);
-						newState.cornerOri = moveController.updateCornerOrientaion(curNode.cube.cornerOri, move);
-						newState.cornerPerm = moveController.updateCornerPerm(curNode.cube.cornerPerm, move);
-						newState.UDSliceSort = moveController.updateUDSliceSorted(curNode.cube.UDSliceSort, move);
-						newState.USliceSort = moveController.updateUSliceSorted(curNode.cube.USliceSort, move);
-						newState.DSliceSort = moveController.updateDSliceSorted(curNode.cube.DSliceSort, move);
+						CubeStateG1 newState = {
+							moveController.updateFlipUDSlice(curNode.cube.flipUDSlice, move),
+							moveController.updateCornerOrientaion(curNode.cube.cornerOri, move),
+							moveController.updateCornerPerm(curNode.cube.cornerPerm, move),
+							moveController.updateUDSliceSorted(curNode.cube.UDSliceSort, move),
+							moveController.updateUSliceSorted(curNode.cube.USliceSort, move),
+							moveController.updateDSliceSorted(curNode.cube.DSliceSort, move),
+						};
 
 						int estSuccMoves = curNode.depth + 1 + databaseG1Controller.getNumMoves(newState.flipUDSlice, newState.cornerOri);
 
@@ -285,7 +285,6 @@ public:
 						(int)(curNode.depth + 1)
 						});
 					successors.pop();
-					nodesGenerated++;
 				}
 			}
 		}
@@ -293,7 +292,10 @@ public:
 			moveStore.printMoveSequence(solution);
 			cout << "\n";
 		}
-		return solution;
+		if (solution.empty())
+			return vector<int>(50);
+		else
+			return solution;
 
 	}
 
@@ -353,10 +355,11 @@ public:
 					if (availableMovesG2 & (1 << move)) {
 						
 						if (curNode.depth == 0 || !movePruner.pruneMove(move, curNode.move)) {
-							CubeStateG2 newState;
-							newState.cornerPerm = moveController.updateCornerPerm(curNode.cube.cornerPerm, move);
-							newState.edgeMPerm = moveController.updateEdgeMPerm(curNode.cube.edgeMPerm, move);
-							newState.edgeRPerm = moveController.updateEdgeRPerm(curNode.cube.edgeRPerm, move);
+							CubeStateG2 newState = {
+								moveController.updateCornerPerm(curNode.cube.cornerPerm, move),
+								moveController.updateEdgeRPerm(curNode.cube.edgeRPerm, move),
+								moveController.updateEdgeMPerm(curNode.cube.edgeMPerm, move)
+							};
 
 							int estSuccMoves = curNode.depth + 1 + databaseG2Controller.getNumMoves(
 								newState.cornerPerm,
